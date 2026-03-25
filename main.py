@@ -7,14 +7,18 @@ Examples
 # Scrape a public Facebook page (headless, no login):
     python main.py facebook nasa --max-posts 15
 
+# Scrape a public Instagram profile:
+    python main.py instagram nasa --max-posts 12
+
 # Scrape with login credentials:
     python main.py facebook nasa --email you@example.com --password secret
+    python main.py instagram nasa --username you --password secret
 
 # Show output as JSON to stdout instead of saving a file:
-    python main.py facebook nasa --stdout
+    python main.py instagram nasa --stdout
 
 # Save as CSV:
-    python main.py facebook nasa --format csv
+    python main.py instagram nasa --format csv
 """
 
 import argparse
@@ -24,17 +28,19 @@ import os
 import sys
 
 from scraper.sites.facebook import FacebookScraper
+from scraper.sites.instagram import InstagramScraper
 
 
 SCRAPERS = {
     "facebook": FacebookScraper,
+    "instagram": InstagramScraper,
 }
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="scraper",
-        description="Multi-site web scraper — currently supports: facebook",
+        description="Multi-site web scraper — currently supports: facebook, instagram",
     )
     parser.add_argument(
         "site",
@@ -55,12 +61,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--email",
         default=os.getenv("FB_EMAIL"),
-        help="Account email for login (or set FB_EMAIL env var).",
+        help="Facebook account email for login (or set FB_EMAIL env var).",
+    )
+    parser.add_argument(
+        "--username",
+        default=os.getenv("IG_USERNAME"),
+        help="Instagram account username for login (or set IG_USERNAME env var).",
     )
     parser.add_argument(
         "--password",
-        default=os.getenv("FB_PASSWORD"),
-        help="Account password for login (or set FB_PASSWORD env var).",
+        default=os.getenv("FB_PASSWORD") or os.getenv("IG_PASSWORD"),
+        help=(
+            "Account password for login. "
+            "Uses FB_PASSWORD for facebook or IG_PASSWORD for instagram env vars."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -103,10 +117,16 @@ def main():
 
     # Site-specific kwargs
     kwargs: dict = {"max_posts": args.max_posts}
-    if args.email:
-        kwargs["email"] = args.email
-    if args.password:
-        kwargs["password"] = args.password
+    if args.site == "facebook":
+        if args.email:
+            kwargs["email"] = args.email
+        if args.password:
+            kwargs["password"] = args.password or os.getenv("FB_PASSWORD")
+    elif args.site == "instagram":
+        if args.username:
+            kwargs["username"] = args.username
+        if args.password:
+            kwargs["password"] = args.password or os.getenv("IG_PASSWORD")
 
     results = scraper.scrape(args.target, **kwargs)
 
